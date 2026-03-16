@@ -1,0 +1,6 @@
+@DataLabeling.API_HostAddress = http://localhost:5252
+
+GET {{DataLabeling.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
