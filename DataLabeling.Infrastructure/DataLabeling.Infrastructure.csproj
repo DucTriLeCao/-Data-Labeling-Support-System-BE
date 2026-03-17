@@ -8,6 +8,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\DataLabeling.Application\DataLabeling.Application.csproj" />
+    <ProjectReference Include="..\DataLabeling.Domain\DataLabeling.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="7.0.0" />
   </ItemGroup>
 
 </Project>
