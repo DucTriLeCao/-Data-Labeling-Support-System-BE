@@ -66,10 +66,10 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
-
-// Use CORS
+// Use CORS MUST come before HttpsRedirection for OPTIONS preflights to succeed over HTTP
 app.UseCors("AllowAll");
+
+app.UseHttpsRedirection();
 
 // Add authentication and authorization middleware
 app.UseAuthentication();

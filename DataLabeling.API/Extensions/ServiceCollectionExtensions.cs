@@ -3,6 +3,8 @@ using DataLabeling.Infrastructure.Configuration;
 using DataLabeling.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using System.Text;
 
 namespace DataLabeling.API.Extensions;
@@ -32,6 +34,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ITokenProvider, JwtTokenProvider>();
         services.AddScoped<IPasswordResetService, PasswordResetService>();
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IAdminUserService, AdminUserService>();
+        services.AddScoped<IActivityLogService, ActivityLogService>();
 
         // Configure JWT authentication
         services.AddAuthentication(options =>
@@ -51,7 +55,9 @@ public static class ServiceCollectionExtensions
                 ValidateAudience = true,
                 ValidAudience = jwtSettings.Audience,
                 ValidateLifetime = true,
-                ClockSkew = TimeSpan.Zero
+                ClockSkew = TimeSpan.Zero,
+                RoleClaimType = ClaimTypes.Role,
+                NameClaimType = ClaimTypes.Name
             };
 
             options.Events = new JwtBearerEvents
