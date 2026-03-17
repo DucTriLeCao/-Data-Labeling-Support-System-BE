@@ -1,0 +1,101 @@
+﻿{
+   "CodeGenerationMode": 4,
+   "ContextClassName": "DataLabelingDBContext",
+   "ContextNamespace": null,
+   "FilterSchemas": false,
+   "IncludeConnectionString": true,
+   "ModelNamespace": null,
+   "OutputContextPath": null,
+   "OutputPath": "Models",
+   "PreserveCasingWithRegex": true,
+   "ProjectRootNamespace": "DataLabeling.Domain",
+   "Schemas": null,
+   "SelectedHandlebarsLanguage": 2,
+   "SelectedToBeGenerated": 0,
+   "T4TemplatePath": null,
+   "Tables": [
+      {
+         "Name": "[dbo].[activity_logs]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[annotations]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[data_item_assignments]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[data_items]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[dataset_assignments]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[datasets]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[export_items]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[export_jobs]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[final_results]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[labels]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[project_members]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[projects]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[reviews]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[users]",
+         "ObjectType": 0
+      }
+   ],
+   "UiHint": null,
+   "UncountableWords": null,
+   "UseAsyncStoredProcedureCalls": true,
+   "UseBoolPropertiesWithoutDefaultSql": false,
+   "UseDatabaseNames": false,
+   "UseDatabaseNamesForRoutines": true,
+   "UseDateOnlyTimeOnly": true,
+   "UseDbContextSplitting": false,
+   "UseDecimalDataAnnotationForSprocResult": true,
+   "UseFluentApiOnly": true,
+   "UseHandleBars": false,
+   "UseHierarchyId": false,
+   "UseInflector": true,
+   "UseInternalAccessModifiersForSprocsAndFunctions": false,
+   "UseLegacyPluralizer": false,
+   "UseManyToManyEntity": false,
+   "UseNoDefaultConstructor": false,
+   "UseNoNavigations": false,
+   "UseNoObjectFilter": false,
+   "UseNodaTime": false,
+   "UseNullableReferences": false,
+   "UsePrefixNavigationNaming": false,
+   "UseSchemaFolders": false,
+   "UseSchemaNamespaces": false,
+   "UseSpatial": false,
+   "UseT4": false,
+   "UseT4Split": false
+}

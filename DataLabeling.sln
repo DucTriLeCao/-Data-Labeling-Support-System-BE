@@ -5,6 +5,12 @@ VisualStudioVersion = 17.14.36202.13 d17.14
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataLabeling.API", "DataLabeling.API\DataLabeling.API.csproj", "{3EDBFF04-61F2-4363-A46A-04740F1881D3}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataLabeling.Domain", "DataLabeling.Domain\DataLabeling.Domain.csproj", "{BD41E845-E16F-4234-8EF0-4014304CA734}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataLabeling.Application", "DataLabeling.Application\DataLabeling.Application.csproj", "{DFE4D99D-6399-4DE0-B43D-2EB7A9746FCA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataLabeling.Infrastructure", "DataLabeling.Infrastructure\DataLabeling.Infrastructure.csproj", "{59F320F4-28DF-40CC-B5DC-2E33CED2270A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +21,18 @@ Global
 		{3EDBFF04-61F2-4363-A46A-04740F1881D3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3EDBFF04-61F2-4363-A46A-04740F1881D3}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3EDBFF04-61F2-4363-A46A-04740F1881D3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BD41E845-E16F-4234-8EF0-4014304CA734}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BD41E845-E16F-4234-8EF0-4014304CA734}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BD41E845-E16F-4234-8EF0-4014304CA734}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BD41E845-E16F-4234-8EF0-4014304CA734}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DFE4D99D-6399-4DE0-B43D-2EB7A9746FCA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DFE4D99D-6399-4DE0-B43D-2EB7A9746FCA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DFE4D99D-6399-4DE0-B43D-2EB7A9746FCA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DFE4D99D-6399-4DE0-B43D-2EB7A9746FCA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{59F320F4-28DF-40CC-B5DC-2E33CED2270A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{59F320F4-28DF-40CC-B5DC-2E33CED2270A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{59F320F4-28DF-40CC-B5DC-2E33CED2270A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{59F320F4-28DF-40CC-B5DC-2E33CED2270A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
