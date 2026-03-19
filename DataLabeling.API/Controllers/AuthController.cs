@@ -64,51 +64,6 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
-    /// User registration
-    /// </summary>
-    /// <param name="request">Registration data (username, email, password, and optional role)</param>
-    /// <returns>JWT tokens and user information</returns>
-    /// <response code="200">Registration successful</response>
-    /// <response code="400">Invalid data or user already exists</response>
-    /// <response code="500">Internal server error</response>
-    [HttpPost("register")]
-    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> Register([FromBody] RegisterRequest request)
-    {
-        try
-        {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(new AuthResponse
-                {
-                    IsSuccess = false,
-                    Message = "Invalid request data"
-                });
-            }
-
-            var result = await _authService.RegisterAsync(request);
-
-            if (!result.IsSuccess)
-            {
-                return BadRequest(result);
-            }
-
-            _logger.LogInformation($"New user {request.Username} registered successfully");
-            return Ok(result);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError($"Registration error: {ex.Message}");
-            return StatusCode(500, new AuthResponse
-            {
-                IsSuccess = false,
-                Message = "An error occurred during registration"
-            });
-        }
-    }
-
-    /// <summary>
     /// Refresh access token
     /// </summary>
     /// <param name="refreshToken">Refresh token from login/register response</param>

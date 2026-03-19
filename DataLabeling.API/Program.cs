@@ -66,6 +66,9 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+// Serve uploaded images from wwwroot/
+app.UseStaticFiles();
+
 // Use CORS MUST come before HttpsRedirection for OPTIONS preflights to succeed over HTTP
 app.UseCors("AllowAll");
 

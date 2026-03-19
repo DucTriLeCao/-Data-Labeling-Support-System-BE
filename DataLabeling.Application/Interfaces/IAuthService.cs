@@ -10,11 +10,6 @@ public interface IAuthService
     Task<AuthResponse> LoginAsync(LoginRequest request);
 
     /// <summary>
-    /// Register new user
-    /// </summary>
-    Task<AuthResponse> RegisterAsync(RegisterRequest request);
-
-    /// <summary>
     /// Refresh access token using refresh token
     /// </summary>
     Task<AuthResponse> RefreshTokenAsync(string refreshToken);

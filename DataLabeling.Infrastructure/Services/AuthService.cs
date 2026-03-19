@@ -104,113 +104,6 @@ public class AuthService : IAuthService
         }
     }
 
-    public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
-    {
-        try
-        {
-            // Validation
-            if (string.IsNullOrWhiteSpace(request.Username) ||
-                string.IsNullOrWhiteSpace(request.Email) ||
-                string.IsNullOrWhiteSpace(request.Password))
-            {
-                return new AuthResponse
-                {
-                    IsSuccess = false,
-                    Message = "Username, email, and password are required"
-                };
-            }
-
-            if (request.Password.Length < 6)
-            {
-                return new AuthResponse
-                {
-                    IsSuccess = false,
-                    Message = "Password must be at least 6 characters long"
-                };
-            }
-
-            // Check if username already exists
-            if (await _dbContext.Users.AnyAsync(u => u.Username == request.Username))
-            {
-                return new AuthResponse
-                {
-                    IsSuccess = false,
-                    Message = "Username already exists"
-                };
-            }
-
-            // Check if email already exists
-            if (await _dbContext.Users.AnyAsync(u => u.Email == request.Email))
-            {
-                return new AuthResponse
-                {
-                    IsSuccess = false,
-                    Message = "Email already exists"
-                };
-            }
-
-            // Validate role (case-insensitive)
-            var role = request.Role;
-            if (!UserRole.AllRoles.Contains(role))
-            {
-                // Try case-insensitive match
-                var matchedRole = UserRole.AllRoles.FirstOrDefault(r => 
-                    r.Equals(role, StringComparison.OrdinalIgnoreCase));
-                
-                role = matchedRole ?? UserRole.Annotator;
-            }
-            // Normalize to proper case
-            role = UserRole.AllRoles.FirstOrDefault(r => 
-                r.Equals(role, StringComparison.OrdinalIgnoreCase)) ?? role;
-
-            // Create new user
-            var user = new User
-            {
-                Username = request.Username,
-                Email = request.Email,
-                PasswordHash = _passwordHasher.HashPassword(request.Password),
-                Role = role,
-                Status = "Active",
-                CreatedAt = DateTime.UtcNow
-            };
-
-            _dbContext.Users.Add(user);
-            await _dbContext.SaveChangesAsync();
-
-            // Generate tokens
-            var accessToken = _tokenProvider.GenerateAccessToken(user.Id, user.Username, user.Role);
-            var refreshToken = _tokenProvider.GenerateRefreshToken();
-
-            return new AuthResponse
-            {
-                IsSuccess = true,
-                Message = "Registration successful",
-                Data = new AuthTokenResponse
-                {
-                    AccessToken = accessToken,
-                    RefreshToken = refreshToken,
-                    ExpiresIn = 15 * 60,
-                    User = new UserDto
-                    {
-                        Id = user.Id,
-                        Username = user.Username,
-                        Email = user.Email,
-                        Role = user.Role,
-                        Status = user.Status
-                    }
-                }
-            };
-        }
-        catch (Exception ex)
-        {
-            return new AuthResponse
-            {
-                IsSuccess = false,
-                Message = $"An error occurred during registration: {ex.Message}"
-            };
-        }
-    }
-
     public Task<AuthResponse> RefreshTokenAsync(string refreshToken)
     {
         try
@@ -387,6 +280,34 @@ public class AuthService : IAuthService
                 Message = $"An error occurred: {ex.Message}"
             };
         }
+    }
+
+    /// <summary>
+    /// Normalizes role to proper casing by matching against valid roles in UserRole class.
+    /// </summary>
+    private string NormalizeRole(string role)
+    {
+        if (string.IsNullOrWhiteSpace(role))
+            return UserRole.Annotator;
+
+        var normalizedRole = UserRole.AllRoles.FirstOrDefault(r => 
+            r.Equals(role, StringComparison.OrdinalIgnoreCase));
+        
+        return normalizedRole ?? UserRole.Annotator;
+    }
+
+    /// <summary>
+    /// Normalizes status to proper casing by matching against valid statuses in UserStatus class.
+    /// </summary>
+    private string NormalizeStatus(string status)
+    {
+        if (string.IsNullOrWhiteSpace(status))
+            return UserStatus.Active;
+
+        var normalizedStatus = UserStatus.AllStatuses.FirstOrDefault(s => 
+            s.Equals(status, StringComparison.OrdinalIgnoreCase));
+        
+        return normalizedStatus ?? UserStatus.Active;
     }
 }
 
