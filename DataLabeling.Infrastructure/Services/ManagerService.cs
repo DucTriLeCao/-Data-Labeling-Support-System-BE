@@ -269,6 +269,14 @@ public class ManagerService : IManagerService
         if (!await _context.Datasets.AnyAsync(d => d.Id == datasetId)) throw new KeyNotFoundException("Dataset not found.");
         if (!await _context.Users.AnyAsync(u => u.Id == request.UserId)) throw new KeyNotFoundException("User not found.");
 
+        var dataset = await _context.Datasets.FindAsync(datasetId);
+        long projectId = dataset.ProjectId;
+
+        // Update dataset status to assigned
+        dataset.Status = "assigned";
+        _context.Datasets.Update(dataset);
+
+        // Update or create DatasetAssignment
         var existing = await _context.DatasetAssignments.FirstOrDefaultAsync(da => da.DatasetId == datasetId && da.UserId == request.UserId);
         if (existing != null)
         {
@@ -286,6 +294,52 @@ public class ManagerService : IManagerService
                 AssignedAt = DateTime.UtcNow
             });
         }
+
+        // Create DataItemAssignments for all data items in the dataset
+        var dataItems = await _context.DataItems.Where(di => di.DatasetId == datasetId).ToListAsync();
+        foreach (var dataItem in dataItems)
+        {
+            // Update dataitem status to assigned
+            dataItem.Status = "assigned";
+            _context.DataItems.Update(dataItem);
+
+            var existingAssignment = await _context.DataItemAssignments
+                .FirstOrDefaultAsync(da => da.DataItemId == dataItem.Id && da.UserId == request.UserId);
+            
+            if (existingAssignment == null)
+            {
+                _context.DataItemAssignments.Add(new DataItemAssignment
+                {
+                    DataItemId = dataItem.Id,
+                    UserId = request.UserId,
+                    Status = "assigned",
+                    AssignedAt = DateTime.UtcNow
+                });
+            }
+        }
+
+        // Add user to ProjectMembers if not already a member
+        var existingMember = await _context.ProjectMembers.FirstOrDefaultAsync(pm => pm.ProjectId == projectId && pm.UserId == request.UserId);
+        if (existingMember == null)
+        {
+            _context.ProjectMembers.Add(new ProjectMember
+            {
+                ProjectId = projectId,
+                UserId = request.UserId,
+                RoleInProject = request.Role,
+                JoinedAt = DateTime.UtcNow
+            });
+        }
+        else
+        {
+            // Update existing role if different
+            if (existingMember.RoleInProject != request.Role)
+            {
+                existingMember.RoleInProject = request.Role;
+                _context.ProjectMembers.Update(existingMember);
+            }
+        }
+
         await _context.SaveChangesAsync();
         return true;
     }

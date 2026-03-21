@@ -28,12 +28,21 @@ public class AnnotatorService : IAnnotatorService
                 .Where(d => d.UserId == userId && d.Status != "Completed")
                 .Include(d => d.DataItem)
                 .ThenInclude(d => d.Dataset)
+                .ThenInclude(d => d.Project)
+                .Include(d => d.DataItem)
+                .ThenInclude(d => d.Annotations)
+                .Include(d => d.User)
+                .Where(d => d.DataItem != null && d.DataItem.Dataset != null && d.DataItem.Dataset.Project != null)
                 .Select(d => new AssignedTaskDto
                 {
                     DataItemAssignmentId = d.Id,
                     DataItemId = d.DataItemId,
                     DatasetId = d.DataItem.DatasetId,
                     DatasetName = d.DataItem.Dataset.Name,
+                    ProjectId = d.DataItem.Dataset.Project.Id,
+                    ProjectName = d.DataItem.Dataset.Project.Name,
+                    AssignedUserId = d.UserId,
+                    AssignedUserName = d.User.Username,
                     DataContent = d.DataItem.Content,
                     Status = d.Status,
                     AssignedAt = d.AssignedAt,

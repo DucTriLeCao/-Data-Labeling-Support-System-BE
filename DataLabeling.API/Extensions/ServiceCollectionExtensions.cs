@@ -38,6 +38,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IActivityLogService, ActivityLogService>();
         services.AddScoped<IManagerService, ManagerService>();
         services.AddScoped<IAnnotatorService, AnnotatorService>();
+        services.AddScoped<IReviewerService, ReviewerService>();
 
         // Configure JWT authentication
         services.AddAuthentication(options =>

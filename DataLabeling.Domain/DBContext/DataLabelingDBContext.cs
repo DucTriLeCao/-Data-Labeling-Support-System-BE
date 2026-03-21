@@ -116,6 +116,11 @@ public partial class DataLabelingDBContext : DbContext
                 .HasDefaultValue("submitted")
                 .HasColumnName("status");
             entity.Property(e => e.UserId).HasColumnName("user_id");
+            entity.Property(e => e.AnnotationType)
+                .HasMaxLength(50)
+                .HasColumnName("annotation_type");
+            entity.Property(e => e.CoordinateData)
+                .HasColumnName("coordinate_data");
 
             entity.HasOne(d => d.DataItem).WithMany(p => p.Annotations)
                 .HasForeignKey(d => d.DataItemId)
