@@ -1,6 +1,7 @@
 using System.Text.Json;
 using DataLabeling.Application.Interfaces;
 using DataLabeling.Domain.DTOs.Reviewer;
+using DataLabeling.Domain.DTOs.Common;
 using DataLabeling.Domain.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -18,7 +19,7 @@ public class ReviewerService : IReviewerService
         _dbContext = dbContext;
     }
 
-    public async Task<ReviewerResponse<List<ReviewQueueItemDto>>> GetSubmittedQueueAsync(long reviewerId)
+    public async Task<ReviewerResponse<PagedResult<ReviewQueueItemDto>>> GetSubmittedQueueAsync(long reviewerId, int pageNumber = 1, int pageSize = 20)
     {
         try
         {
@@ -28,12 +29,18 @@ public class ReviewerService : IReviewerService
                 .Distinct()
                 .ToListAsync();
 
-            var queue = await _dbContext.Annotations
+            var query = _dbContext.Annotations
                 .Where(a => a.Status == "Submitted" && reviewerDatasetIds.Contains(a.DataItem.DatasetId))
                 .Include(a => a.DataItem)
                 .ThenInclude(di => di.Dataset)
                 .ThenInclude(ds => ds.Project)
-                .Include(a => a.User)
+                .Include(a => a.User);
+
+            var total = await query.CountAsync();
+            var queue = await query
+                .OrderByDescending(x => x.CreatedAt)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
                 .Select(a => new ReviewQueueItemDto
                 {
                     AnnotationId = a.Id,
@@ -51,19 +58,18 @@ public class ReviewerService : IReviewerService
                     AnnotatorName = a.User.Username,
                     SubmittedAt = a.CreatedAt
                 })
-                .OrderByDescending(x => x.SubmittedAt)
                 .ToListAsync();
 
-            return new ReviewerResponse<List<ReviewQueueItemDto>>
+            return new ReviewerResponse<PagedResult<ReviewQueueItemDto>>
             {
                 IsSuccess = true,
                 Message = $"Retrieved {queue.Count} submitted annotations",
-                Data = queue
+                Data = new PagedResult<ReviewQueueItemDto> { Items = queue, TotalCount = total, PageNumber = pageNumber, PageSize = pageSize }
             };
         }
         catch (Exception ex)
         {
-            return new ReviewerResponse<List<ReviewQueueItemDto>>
+            return new ReviewerResponse<PagedResult<ReviewQueueItemDto>>
             {
                 IsSuccess = false,
                 Message = $"Error retrieving review queue: {ex.Message}",
@@ -207,12 +213,12 @@ public class ReviewerService : IReviewerService
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
-            if (decision == "NeedsRework" && string.IsNullOrWhiteSpace(request.Comment) && cleanedCategories.Count == 0)
+            if (decision == "rejected" && string.IsNullOrWhiteSpace(request.Comment) && cleanedCategories.Count == 0)
             {
                 return new ReviewerResponse<string>
                 {
                     IsSuccess = false,
-                    Message = "Comment or error categories are required when returning annotation for rework",
+                    Message = "Comment or error categories are required when rejecting annotation for rework",
                     Data = null
                 };
             }
@@ -228,13 +234,23 @@ public class ReviewerService : IReviewerService
                 AnnotationId = annotation.Id,
                 ReviewerId = reviewerId,
                 Status = decision,
-                Comment = JsonSerializer.Serialize(commentPayload),
-                ReviewedAt = DateTime.UtcNow
+                Comment = JsonSerializer.Serialize(commentPayload)
+                // ReviewedAt will be set by database default
             };
 
             _dbContext.Reviews.Add(review);
 
-            annotation.Status = decision;
+            // Update annotation status based on review decision
+            if (decision == "approved")
+            {
+                annotation.Status = "approved";
+            }
+            else if (decision == "rejected")
+            {
+                // Send back to annotator for revision
+                annotation.Status = "need_rework";
+            }
+            
             _dbContext.Annotations.Update(annotation);
 
             await _dbContext.SaveChangesAsync();
@@ -248,10 +264,15 @@ public class ReviewerService : IReviewerService
         }
         catch (Exception ex)
         {
+            var message = $"Error submitting review decision: {ex.Message}";
+            if (ex.InnerException != null)
+            {
+                message += $" | Inner: {ex.InnerException.Message}";
+            }
             return new ReviewerResponse<string>
             {
                 IsSuccess = false,
-                Message = $"Error submitting review decision: {ex.Message}",
+                Message = message,
                 Data = null
             };
         }
@@ -272,9 +293,10 @@ public class ReviewerService : IReviewerService
 
         return decision.Trim().ToLowerInvariant() switch
         {
-            "approved" => "Approved",
-            "needsrework" => "NeedsRework",
-            "rework" => "NeedsRework",
+            "approved" => "approved",
+            "needsrework" => "rejected",
+            "rework" => "rejected",
+            "rejected" => "rejected",
             _ => null
         };
     }
@@ -402,6 +424,75 @@ public class ReviewerService : IReviewerService
         }
 
         return true;
+    }
+
+    public async Task<ReviewerResponse<PagedResult<ReviewHistoryDto>>> GetReviewHistoryAsync(long reviewerId, int pageNumber = 1, int pageSize = 20, string? status = null)
+    {
+        try
+        {
+            var query = _dbContext.Reviews
+                .Where(r => r.ReviewerId == reviewerId)
+                .Include(r => r.Annotation)
+                .ThenInclude(a => a.DataItem)
+                .ThenInclude(di => di.Dataset)
+                .ThenInclude(ds => ds.Project)
+                .Include(r => r.Annotation)
+                .ThenInclude(a => a.User)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(status))
+            {
+                query = query.Where(r => r.Status == status);
+            }
+
+            var total = await query.CountAsync();
+
+            var reviews = await query
+                .OrderByDescending(r => r.ReviewedAt)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            var history = reviews.Select(r => new ReviewHistoryDto
+            {
+                ReviewId = r.Id,
+                AnnotationId = r.AnnotationId,
+                DataItemId = r.Annotation.DataItemId,
+                DatasetId = r.Annotation.DataItem.DatasetId,
+                ProjectId = r.Annotation.DataItem.Dataset.ProjectId,
+                ProjectName = r.Annotation.DataItem.Dataset.Project.Name,
+                DatasetName = r.Annotation.DataItem.Dataset.Name,
+                AnnotatorId = r.Annotation.UserId,
+                AnnotatorName = r.Annotation.User.Username,
+                LabelValue = r.Annotation.LabelValue,
+                ReviewStatus = r.Status,
+                Comment = r.Comment,
+                ReviewedAt = r.ReviewedAt,
+                AnnotationSubmittedAt = r.Annotation.CreatedAt
+            }).ToList();
+
+            return new ReviewerResponse<PagedResult<ReviewHistoryDto>>
+            {
+                IsSuccess = true,
+                Message = $"Retrieved {history.Count} review history records",
+                Data = new PagedResult<ReviewHistoryDto>
+                {
+                    Items = history,
+                    TotalCount = total,
+                    PageNumber = pageNumber,
+                    PageSize = pageSize
+                }
+            };
+        }
+        catch (Exception ex)
+        {
+            return new ReviewerResponse<PagedResult<ReviewHistoryDto>>
+            {
+                IsSuccess = false,
+                Message = $"Error retrieving review history: {ex.Message}",
+                Data = null
+            };
+        }
     }
 
     private class ReviewCommentPayload

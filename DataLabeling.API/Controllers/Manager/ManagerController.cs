@@ -22,9 +22,9 @@ public class ManagerController : ControllerBase
 
     #region Projects
     [HttpGet("projects")]
-    public async Task<IActionResult> GetProjects([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20, [FromQuery] string? status = null)
+    public async Task<IActionResult> GetProjects([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20, [FromQuery] string? status = null, [FromQuery] string? searchTerm = null)
     {
-        var result = await _managerService.GetProjectsAsync(pageNumber, pageSize, status);
+        var result = await _managerService.GetProjectsAsync(pageNumber, pageSize, status, searchTerm);
         return Ok(result);
     }
 
@@ -63,14 +63,51 @@ public class ManagerController : ControllerBase
             return NotFound(ex.Message);
         }
     }
+
+    [HttpDelete("projects/{id}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteProject([FromRoute] long id)
+    {
+        try
+        {
+            var success = await _managerService.DeleteProjectAsync(id);
+            if (!success) return NotFound($"Project {id} not found.");
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { Message = ex.Message });
+        }
+    }
+
+    [HttpDelete("projects/bulk")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> BulkDeleteProjects([FromBody] List<long> projectIds)
+    {
+        if (projectIds == null || projectIds.Count == 0)
+            return BadRequest(new { Message = "No project IDs provided" });
+
+        var result = await _managerService.BulkDeleteProjectsAsync(projectIds);
+        return Ok(result);
+    }
     #endregion
 
     #region Datasets
-    [HttpGet("projects/{projectId}/datasets")]
-    public async Task<IActionResult> GetDatasets([FromRoute] long projectId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20, [FromQuery] string? status = null)
+    [HttpGet("datasets")]
+    public async Task<IActionResult> GetDatasets([FromQuery] long projectId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20, [FromQuery] string? status = null, [FromQuery] string? searchTerm = null)
     {
-        var result = await _managerService.GetDatasetsAsync(projectId, pageNumber, pageSize, status);
+        var result = await _managerService.GetDatasetsAsync(projectId, pageNumber, pageSize, status, searchTerm);
         return Ok(result);
+    }
+
+    [HttpGet("datasets/{id}")]
+    public async Task<IActionResult> GetDatasetById([FromRoute] long id)
+    {
+        var dataset = await _managerService.GetDatasetByIdAsync(id);
+        if (dataset == null) return NotFound($"Dataset {id} not found.");
+        return Ok(dataset);
     }
 
     [HttpPost("projects/{projectId}/datasets")]
@@ -101,11 +138,50 @@ public class ManagerController : ControllerBase
         }
     }
 
-    [HttpGet("datasets/{datasetId}/items")]
-    public async Task<IActionResult> GetDataItems([FromRoute] long datasetId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 50, [FromQuery] string? status = null)
+    [HttpDelete("datasets/{id}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteDataset([FromRoute] long id)
     {
-        var result = await _managerService.GetDataItemsAsync(datasetId, pageNumber, pageSize, status);
+        try
+        {
+            var success = await _managerService.DeleteDatasetAsync(id);
+            if (!success) return NotFound($"Dataset {id} not found.");
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { Message = ex.Message });
+        }
+    }
+
+    [HttpDelete("datasets/bulk")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> BulkDeleteDatasets([FromBody] List<long> datasetIds)
+    {
+        if (datasetIds == null || datasetIds.Count == 0)
+            return BadRequest(new { Message = "No dataset IDs provided" });
+
+        var result = await _managerService.BulkDeleteDatasetsAsync(datasetIds);
         return Ok(result);
+    }
+    #endregion
+
+    #region Data Items
+    [HttpGet("data-items")]
+    public async Task<IActionResult> GetDataItems([FromQuery] long datasetId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20, [FromQuery] string? status = null, [FromQuery] string? searchTerm = null)
+    {
+        var result = await _managerService.GetDataItemsAsync(datasetId, pageNumber, pageSize, status, searchTerm);
+        return Ok(result);
+    }
+
+    [HttpGet("data-items/{id}")]
+    public async Task<IActionResult> GetDataItemById([FromRoute] long id)
+    {
+        var dataItem = await _managerService.GetDataItemByIdAsync(id);
+        if (dataItem == null) return NotFound($"Data item {id} not found.");
+        return Ok(dataItem);
     }
 
     [HttpPost("datasets/{datasetId}/items")]
@@ -129,14 +205,51 @@ public class ManagerController : ControllerBase
             return BadRequest(new { Message = ex.Message });
         }
     }
+
+    [HttpDelete("data-items/{id}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteDataItem([FromRoute] long id)
+    {
+        try
+        {
+            var success = await _managerService.DeleteDataItemAsync(id);
+            if (!success) return NotFound($"Data item {id} not found.");
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { Message = ex.Message });
+        }
+    }
+
+    [HttpDelete("data-items/bulk")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> BulkDeleteDataItems([FromBody] List<long> dataItemIds)
+    {
+        if (dataItemIds == null || dataItemIds.Count == 0)
+            return BadRequest(new { Message = "No data item IDs provided" });
+
+        var result = await _managerService.BulkDeleteDataItemsAsync(dataItemIds);
+        return Ok(result);
+    }
     #endregion
 
     #region Labels
     [HttpGet("projects/{projectId}/labels")]
-    public async Task<IActionResult> GetLabels([FromRoute] long projectId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 100)
+    public async Task<IActionResult> GetLabels([FromRoute] long projectId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
     {
         var result = await _managerService.GetLabelsAsync(projectId, pageNumber, pageSize);
         return Ok(result);
+    }
+
+    [HttpGet("labels/{id}")]
+    public async Task<IActionResult> GetLabelById([FromRoute] long id)
+    {
+        var label = await _managerService.GetLabelByIdAsync(id);
+        if (label == null) return NotFound($"Label {id} not found.");
+        return Ok(label);
     }
 
     [HttpPost("projects/{projectId}/labels")]
@@ -184,6 +297,18 @@ public class ManagerController : ControllerBase
             return BadRequest(new { Message = ex.Message });
         }
     }
+
+    [HttpDelete("labels/bulk")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> BulkDeleteLabels([FromBody] List<long> labelIds)
+    {
+        if (labelIds == null || labelIds.Count == 0)
+            return BadRequest(new { Message = "No label IDs provided" });
+
+        var result = await _managerService.BulkDeleteLabelsAsync(labelIds);
+        return Ok(result);
+    }
     #endregion
 
     #region Task Assignment & Tracking
@@ -208,6 +333,20 @@ public class ManagerController : ControllerBase
         {
             var progress = await _managerService.GetDatasetProgressAsync(datasetId);
             return Ok(progress);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+    }
+
+    [HttpGet("datasets/{datasetId}/assignments")]
+    public async Task<IActionResult> GetDatasetAssignments([FromRoute] long datasetId)
+    {
+        try
+        {
+            var assignments = await _managerService.GetDatasetAssignmentsAsync(datasetId);
+            return Ok(assignments);
         }
         catch (KeyNotFoundException ex)
         {
@@ -253,10 +392,28 @@ public class ManagerController : ControllerBase
     }
 
     [HttpGet("projects/{projectId}/export-jobs")]
-    public async Task<IActionResult> GetExportJobs([FromRoute] long projectId)
+    public async Task<IActionResult> GetExportJobs([FromRoute] long projectId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
     {
-        var jobs = await _managerService.GetExportJobsAsync(projectId);
+        var jobs = await _managerService.GetExportJobsAsync(projectId, pageNumber, pageSize);
         return Ok(jobs);
     }
     #endregion
+
+    #region User Management
+    [HttpGet("users")]
+    public async Task<IActionResult> GetUsers([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20, [FromQuery] string? role = null, [FromQuery] string? status = null)
+    {
+        var result = await _managerService.GetUsersAsync(pageNumber, pageSize, role, status);
+        return Ok(result);
+    }
+
+    [HttpGet("users/{id}")]
+    public async Task<IActionResult> GetUserById([FromRoute] long id)
+    {
+        var user = await _managerService.GetUserByIdAsync(id);
+        if (user == null) return NotFound($"User {id} not found.");
+        return Ok(user);
+    }
+    #endregion
+
 }

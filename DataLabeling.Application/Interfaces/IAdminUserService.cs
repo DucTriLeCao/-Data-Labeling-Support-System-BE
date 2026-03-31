@@ -10,4 +10,5 @@ public interface IAdminUserService
     Task<UserDto> CreateUserAsync(CreateUserDto request);
     Task<UserDto> UpdateUserAsync(long id, UpdateUserDto request);
     Task<bool> DeactivateUserAsync(long id);
+    Task<BulkDeleteResultDto> BulkDeactivateUsersAsync(List<long> userIds);
 }

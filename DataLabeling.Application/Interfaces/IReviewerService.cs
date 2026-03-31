@@ -1,4 +1,5 @@
 using DataLabeling.Domain.DTOs.Reviewer;
+using DataLabeling.Domain.DTOs.Common;
 
 namespace DataLabeling.Application.Interfaces;
 
@@ -10,7 +11,7 @@ public interface IReviewerService
     /// <summary>
     /// Get submitted annotations that the current reviewer can review
     /// </summary>
-    Task<ReviewerResponse<List<ReviewQueueItemDto>>> GetSubmittedQueueAsync(long reviewerId);
+    Task<ReviewerResponse<PagedResult<ReviewQueueItemDto>>> GetSubmittedQueueAsync(long reviewerId, int pageNumber = 1, int pageSize = 20);
 
     /// <summary>
     /// Get detail and validation information for one submitted annotation
@@ -21,4 +22,9 @@ public interface IReviewerService
     /// Approve annotation or return for rework, with optional categorized errors
     /// </summary>
     Task<ReviewerResponse<string>> SubmitReviewDecisionAsync(long reviewerId, SubmitReviewRequest request);
+
+    /// <summary>
+    /// Get work history of reviews completed by the reviewer
+    /// </summary>
+    Task<ReviewerResponse<PagedResult<ReviewHistoryDto>>> GetReviewHistoryAsync(long reviewerId, int pageNumber = 1, int pageSize = 20, string? status = null);
 }

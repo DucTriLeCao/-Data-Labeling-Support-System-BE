@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using DataLabeling.Application.Interfaces;
 using DataLabeling.Domain.DTOs.Annotator;
+using DataLabeling.Domain.DTOs.Common;
 using DataLabeling.Domain.Models;
 
 namespace DataLabeling.Infrastructure.Services;
@@ -20,11 +21,11 @@ public class AnnotatorService : IAnnotatorService
     /// <summary>
     /// Get all assigned tasks for an annotator
     /// </summary>
-    public async Task<AnnotatorResponse<List<AssignedTaskDto>>> GetAssignedTasksAsync(long userId)
+    public async Task<AnnotatorResponse<PagedResult<AssignedTaskDto>>> GetAssignedTasksAsync(long userId, int pageNumber = 1, int pageSize = 20)
     {
         try
         {
-            var tasks = await _dbContext.DataItemAssignments
+            var query = _dbContext.DataItemAssignments
                 .Where(d => d.UserId == userId && d.Status != "Completed")
                 .Include(d => d.DataItem)
                 .ThenInclude(d => d.Dataset)
@@ -32,7 +33,13 @@ public class AnnotatorService : IAnnotatorService
                 .Include(d => d.DataItem)
                 .ThenInclude(d => d.Annotations)
                 .Include(d => d.User)
-                .Where(d => d.DataItem != null && d.DataItem.Dataset != null && d.DataItem.Dataset.Project != null)
+                .Where(d => d.DataItem != null && d.DataItem.Dataset != null && d.DataItem.Dataset.Project != null);
+
+            var total = await query.CountAsync();
+            var tasks = await query
+                .OrderByDescending(d => d.AssignedAt)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
                 .Select(d => new AssignedTaskDto
                 {
                     DataItemAssignmentId = d.Id,
@@ -54,16 +61,16 @@ public class AnnotatorService : IAnnotatorService
                 })
                 .ToListAsync();
 
-            return new AnnotatorResponse<List<AssignedTaskDto>>
+            return new AnnotatorResponse<PagedResult<AssignedTaskDto>>
             {
                 IsSuccess = true,
                 Message = $"Retrieved {tasks.Count} assigned tasks",
-                Data = tasks
+                Data = new PagedResult<AssignedTaskDto> { Items = tasks, TotalCount = total, PageNumber = pageNumber, PageSize = pageSize }
             };
         }
         catch (Exception ex)
         {
-            return new AnnotatorResponse<List<AssignedTaskDto>>
+            return new AnnotatorResponse<PagedResult<AssignedTaskDto>>
             {
                 IsSuccess = false,
                 Message = $"Error retrieving assigned tasks: {ex.Message}",
@@ -377,6 +384,138 @@ public class AnnotatorService : IAnnotatorService
             {
                 IsSuccess = false,
                 Message = $"Error retrieving annotation: {ex.Message}",
+                Data = null
+            };
+        }
+    }
+
+    public async Task<AnnotatorResponse<PagedResult<AnnotationHistoryDto>>> GetAnnotationHistoryAsync(long userId, int pageNumber = 1, int pageSize = 20, string? status = null)
+    {
+        try
+        {
+            var query = _dbContext.Annotations
+                .Where(a => a.UserId == userId)
+                .Include(a => a.DataItem)
+                .ThenInclude(di => di.Dataset)
+                .ThenInclude(ds => ds.Project)
+                .Include(a => a.Reviews)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(status))
+            {
+                query = query.Where(a => a.Status == status);
+            }
+
+            var total = await query.CountAsync();
+
+            var annotations = await query
+                .OrderByDescending(a => a.CreatedAt)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            var history = annotations.Select(a => new AnnotationHistoryDto
+            {
+                AnnotationId = a.Id,
+                DataItemId = a.DataItemId,
+                DatasetId = a.DataItem.DatasetId,
+                ProjectId = a.DataItem.Dataset.ProjectId,
+                ProjectName = a.DataItem.Dataset.Project.Name,
+                DatasetName = a.DataItem.Dataset.Name,
+                LabelValue = a.LabelValue,
+                Status = a.Status,
+                AnnotationType = a.AnnotationType,
+                CreatedAt = a.CreatedAt,
+                SubmittedAt = a.Reviews.FirstOrDefault()?.ReviewedAt,
+                ReviewCount = a.Reviews.Count,
+                LatestReviewDecision = a.Reviews.OrderByDescending(r => r.ReviewedAt).FirstOrDefault()?.Status
+            }).ToList();
+
+            return new AnnotatorResponse<PagedResult<AnnotationHistoryDto>>
+            {
+                IsSuccess = true,
+                Message = $"Retrieved {history.Count} annotation history records",
+                Data = new PagedResult<AnnotationHistoryDto>
+                {
+                    Items = history,
+                    TotalCount = total,
+                    PageNumber = pageNumber,
+                    PageSize = pageSize
+                }
+            };
+        }
+        catch (Exception ex)
+        {
+            return new AnnotatorResponse<PagedResult<AnnotationHistoryDto>>
+            {
+                IsSuccess = false,
+                Message = $"Error retrieving annotation history: {ex.Message}",
+                Data = null
+            };
+        }
+    }
+
+    public async Task<AnnotatorResponse<AnnotatorProfileDto>> GetAnnotatorProfileAsync(long userId)
+    {
+        try
+        {
+            var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId);
+
+            if (user == null)
+            {
+                return new AnnotatorResponse<AnnotatorProfileDto>
+                {
+                    IsSuccess = false,
+                    Message = "User not found",
+                    Data = null
+                };
+            }
+
+            // Get annotation statistics
+            var totalAnnotations = await _dbContext.Annotations
+                .Where(a => a.UserId == userId)
+                .CountAsync();
+
+            var approvedAnnotations = await _dbContext.Annotations
+                .Where(a => a.UserId == userId && a.Status == "approved")
+                .CountAsync();
+
+            var pendingAnnotations = await _dbContext.Annotations
+                .Where(a => a.UserId == userId && a.Status == "pending")
+                .CountAsync();
+
+            var rejectedAnnotations = await _dbContext.Annotations
+                .Where(a => a.UserId == userId && a.Status == "rejected")
+                .CountAsync();
+
+            var profile = new AnnotatorProfileDto
+            {
+                UserId = user.Id,
+                Username = user.Username,
+                Email = user.Email,
+                TotalAnnotations = totalAnnotations,
+                ApprovedAnnotations = approvedAnnotations,
+                PendingAnnotations = pendingAnnotations,
+                RejectedAnnotations = rejectedAnnotations,
+                AccuracyScore = approvedAnnotations > 0 
+                    ? Math.Round((double)approvedAnnotations / totalAnnotations * 100, 2) 
+                    : 0,
+                JoinedDate = user.CreatedAt
+            };
+
+            return new AnnotatorResponse<AnnotatorProfileDto>
+            {
+                IsSuccess = true,
+                Message = "Annotator profile retrieved successfully",
+                Data = profile
+            };
+        }
+        catch (Exception ex)
+        {
+            return new AnnotatorResponse<AnnotatorProfileDto>
+            {
+                IsSuccess = false,
+                Message = $"Error retrieving annotator profile: {ex.Message}",
                 Data = null
             };
         }

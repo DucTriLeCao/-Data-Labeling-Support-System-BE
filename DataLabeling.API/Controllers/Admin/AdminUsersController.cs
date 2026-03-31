@@ -99,4 +99,23 @@ public class AdminUsersController : ControllerBase
 
         return NoContent();
     }
+
+    [HttpDelete("bulk-deactivate")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> BulkDeactivateUsers([FromBody] List<long> userIds)
+    {
+        if (userIds == null || userIds.Count == 0)
+            return BadRequest(new { Message = "No user IDs provided" });
+
+        var result = await _adminUserService.BulkDeactivateUsersAsync(userIds);
+
+        var adminIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+        if (adminIdClaim != null && long.TryParse(adminIdClaim.Value, out var adminId))
+        {
+            await _activityLogService.LogActivityAsync(adminId, $"Bulk deactivated {result.SuccessfullyDeleted} users", "User", 0);
+        }
+
+        return Ok(result);
+    }
 }

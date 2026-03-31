@@ -94,7 +94,7 @@ public class AdminUserService : IAdminUserService
             Email = request.Email,
             PasswordHash = _passwordHasher.HashPassword(request.Password),
             Role = request.Role,
-            Status = "active",
+            Status = "Active",
             CreatedAt = DateTime.UtcNow
         };
 
@@ -159,11 +159,39 @@ public class AdminUserService : IAdminUserService
             return false;
         }
 
-        user.Status = "inactive";
+        user.Status = "Inactive";
         
         _context.Users.Update(user);
         await _context.SaveChangesAsync();
         
         return true;
+    }
+
+    public async Task<BulkDeleteResultDto> BulkDeactivateUsersAsync(List<long> userIds)
+    {
+        var result = new BulkDeleteResultDto { TotalRequested = userIds.Count };
+
+        foreach (var userId in userIds)
+        {
+            try
+            {
+                if (await DeactivateUserAsync(userId))
+                {
+                    result.SuccessfullyDeleted++;
+                }
+                else
+                {
+                    result.Failed++;
+                    result.Errors.Add(new BulkDeleteErrorDto { Id = userId, Reason = "User not found" });
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Failed++;
+                result.Errors.Add(new BulkDeleteErrorDto { Id = userId, Reason = ex.Message });
+            }
+        }
+
+        return result;
     }
 }

@@ -1,6 +1,7 @@
 using DataLabeling.Application.Interfaces;
 using DataLabeling.Domain.DTOs.Common;
 using DataLabeling.Domain.DTOs.Manager;
+using DataLabeling.Domain.DTOs.Admin.UserMgmt;
 using DataLabeling.Domain.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,12 +17,16 @@ public class ManagerService : IManagerService
     }
 
     #region Projects
-    public async Task<PagedResult<ProjectDto>> GetProjectsAsync(int pageNumber, int pageSize, string? status = null)
+    public async Task<PagedResult<ProjectDto>> GetProjectsAsync(int pageNumber, int pageSize, string? status = null, string? searchTerm = null)
     {
         var query = _context.Projects.AsQueryable();
         if (!string.IsNullOrWhiteSpace(status))
         {
             query = query.Where(p => p.Status == status);
+        }
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            query = query.Where(p => p.Name.Contains(searchTerm));
         }
 
         var total = await query.CountAsync();
@@ -79,13 +84,69 @@ public class ManagerService : IManagerService
         await _context.SaveChangesAsync();
         return new ProjectDto { Id = p.Id, Name = p.Name, Description = p.Description, Status = p.Status, CreatedAt = p.CreatedAt };
     }
+
+    public async Task<bool> DeleteProjectAsync(long id)
+    {
+        var project = await _context.Projects.FindAsync(id);
+        if (project == null) return false;
+
+        // Delete all datasets in project (cascade)
+        var datasets = await _context.Datasets.Where(d => d.ProjectId == id).ToListAsync();
+        foreach (var dataset in datasets)
+        {
+            var dataItems = await _context.DataItems.Where(di => di.DatasetId == dataset.Id).ToListAsync();
+            _context.DataItems.RemoveRange(dataItems);
+            _context.Datasets.Remove(dataset);
+        }
+
+        // Delete project members
+        var members = await _context.ProjectMembers.Where(pm => pm.ProjectId == id).ToListAsync();
+        _context.ProjectMembers.RemoveRange(members);
+
+        // Delete labels
+        var labels = await _context.Labels.Where(l => l.ProjectId == id).ToListAsync();
+        _context.Labels.RemoveRange(labels);
+
+        _context.Projects.Remove(project);
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<BulkDeleteResultDto> BulkDeleteProjectsAsync(List<long> projectIds)
+    {
+        var result = new BulkDeleteResultDto { TotalRequested = projectIds.Count };
+
+        foreach (var projectId in projectIds)
+        {
+            try
+            {
+                if (await DeleteProjectAsync(projectId))
+                {
+                    result.SuccessfullyDeleted++;
+                }
+                else
+                {
+                    result.Failed++;
+                    result.Errors.Add(new BulkDeleteErrorDto { Id = projectId, Reason = "Project not found" });
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Failed++;
+                result.Errors.Add(new BulkDeleteErrorDto { Id = projectId, Reason = ex.Message });
+            }
+        }
+
+        return result;
+    }
     #endregion
 
     #region Datasets
-    public async Task<PagedResult<DatasetDto>> GetDatasetsAsync(long projectId, int pageNumber, int pageSize, string? status = null)
+    public async Task<PagedResult<DatasetDto>> GetDatasetsAsync(long projectId, int pageNumber, int pageSize, string? status = null, string? searchTerm = null)
     {
         var query = _context.Datasets.Where(d => d.ProjectId == projectId).AsQueryable();
         if (!string.IsNullOrWhiteSpace(status)) query = query.Where(d => d.Status == status);
+        if (!string.IsNullOrWhiteSpace(searchTerm)) query = query.Where(d => d.Name.Contains(searchTerm));
 
         var total = await query.CountAsync();
         var data = await query.OrderByDescending(d => d.CreatedAt)
@@ -97,6 +158,22 @@ public class ManagerService : IManagerService
             }).ToListAsync();
 
         return new PagedResult<DatasetDto> { Items = data, TotalCount = total, PageNumber = pageNumber, PageSize = pageSize };
+    }
+
+    public async Task<DatasetDto?> GetDatasetByIdAsync(long id)
+    {
+        var dataset = await _context.Datasets.FirstOrDefaultAsync(d => d.Id == id);
+        if (dataset == null) return null;
+
+        return new DatasetDto
+        {
+            Id = dataset.Id,
+            ProjectId = dataset.ProjectId,
+            Name = dataset.Name,
+            Description = dataset.Description,
+            Status = dataset.Status,
+            CreatedAt = dataset.CreatedAt
+        };
     }
 
     public async Task<DatasetDto> CreateDatasetAsync(long projectId, CreateDatasetDto request)
@@ -130,10 +207,57 @@ public class ManagerService : IManagerService
         return new DatasetDto { Id = d.Id, ProjectId = d.ProjectId, Name = d.Name, Description = d.Description, Status = d.Status, CreatedAt = d.CreatedAt };
     }
 
-    public async Task<PagedResult<DataItemDto>> GetDataItemsAsync(long datasetId, int pageNumber, int pageSize, string? status = null)
+    public async Task<bool> DeleteDatasetAsync(long id)
+    {
+        var dataset = await _context.Datasets.FindAsync(id);
+        if (dataset == null) return false;
+
+        // Delete all data items in dataset
+        var dataItems = await _context.DataItems.Where(di => di.DatasetId == id).ToListAsync();
+        _context.DataItems.RemoveRange(dataItems);
+
+        // Delete dataset assignments
+        var assignments = await _context.DatasetAssignments.Where(da => da.DatasetId == id).ToListAsync();
+        _context.DatasetAssignments.RemoveRange(assignments);
+
+        _context.Datasets.Remove(dataset);
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<BulkDeleteResultDto> BulkDeleteDatasetsAsync(List<long> datasetIds)
+    {
+        var result = new BulkDeleteResultDto { TotalRequested = datasetIds.Count };
+
+        foreach (var datasetId in datasetIds)
+        {
+            try
+            {
+                if (await DeleteDatasetAsync(datasetId))
+                {
+                    result.SuccessfullyDeleted++;
+                }
+                else
+                {
+                    result.Failed++;
+                    result.Errors.Add(new BulkDeleteErrorDto { Id = datasetId, Reason = "Dataset not found" });
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Failed++;
+                result.Errors.Add(new BulkDeleteErrorDto { Id = datasetId, Reason = ex.Message });
+            }
+        }
+
+        return result;
+    }
+
+    public async Task<PagedResult<DataItemDto>> GetDataItemsAsync(long datasetId, int pageNumber, int pageSize, string? status = null, string? searchTerm = null)
     {
         var query = _context.DataItems.Where(di => di.DatasetId == datasetId).AsQueryable();
         if (!string.IsNullOrWhiteSpace(status)) query = query.Where(di => di.Status == status);
+        if (!string.IsNullOrWhiteSpace(searchTerm)) query = query.Where(di => di.Content.Contains(searchTerm));
 
         var total = await query.CountAsync();
         var data = await query.OrderByDescending(di => di.CreatedAt)
@@ -150,6 +274,21 @@ public class ManagerService : IManagerService
             .ToListAsync();
 
         return new PagedResult<DataItemDto> { Items = data, TotalCount = total, PageNumber = pageNumber, PageSize = pageSize };
+    }
+
+    public async Task<DataItemDto?> GetDataItemByIdAsync(long id)
+    {
+        var dataItem = await _context.DataItems.FirstOrDefaultAsync(di => di.Id == id);
+        if (dataItem == null) return null;
+
+        return new DataItemDto
+        {
+            Id = dataItem.Id,
+            DatasetId = dataItem.DatasetId,
+            Content = dataItem.Content,
+            Status = dataItem.Status,
+            CreatedAt = dataItem.CreatedAt
+        };
     }
 
     public async Task<DataItemDto> CreateDataItemAsync(long datasetId, Stream fileStream, string fileName)
@@ -198,6 +337,52 @@ public class ManagerService : IManagerService
             CreatedAt = dataItem.CreatedAt
         };
     }
+
+    public async Task<bool> DeleteDataItemAsync(long id)
+    {
+        var dataItem = await _context.DataItems.FindAsync(id);
+        if (dataItem == null) return false;
+
+        // Delete annotations for this data item
+        var annotations = await _context.Annotations.Where(a => a.DataItemId == id).ToListAsync();
+        _context.Annotations.RemoveRange(annotations);
+
+        // Delete data item assignments
+        var assignments = await _context.DataItemAssignments.Where(dia => dia.DataItemId == id).ToListAsync();
+        _context.DataItemAssignments.RemoveRange(assignments);
+
+        _context.DataItems.Remove(dataItem);
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<BulkDeleteResultDto> BulkDeleteDataItemsAsync(List<long> dataItemIds)
+    {
+        var result = new BulkDeleteResultDto { TotalRequested = dataItemIds.Count };
+
+        foreach (var dataItemId in dataItemIds)
+        {
+            try
+            {
+                if (await DeleteDataItemAsync(dataItemId))
+                {
+                    result.SuccessfullyDeleted++;
+                }
+                else
+                {
+                    result.Failed++;
+                    result.Errors.Add(new BulkDeleteErrorDto { Id = dataItemId, Reason = "Data item not found" });
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Failed++;
+                result.Errors.Add(new BulkDeleteErrorDto { Id = dataItemId, Reason = ex.Message });
+            }
+        }
+
+        return result;
+    }
     #endregion
 
     #region Labels
@@ -211,6 +396,13 @@ public class ManagerService : IManagerService
             .Select(l => new LabelDto { Id = l.Id, ProjectId = l.ProjectId, Name = l.Name, ParentId = l.ParentId })
             .ToListAsync();
         return new PagedResult<LabelDto> { Items = data, TotalCount = total, PageNumber = pageNumber, PageSize = pageSize };
+    }
+
+    public async Task<LabelDto?> GetLabelByIdAsync(long id)
+    {
+        var label = await _context.Labels.FindAsync(id);
+        if (label == null) return null;
+        return new LabelDto { Id = label.Id, ProjectId = label.ProjectId, Name = label.Name, ParentId = label.ParentId };
     }
 
     public async Task<LabelDto> CreateLabelAsync(long projectId, CreateLabelDto request)
@@ -253,13 +445,49 @@ public class ManagerService : IManagerService
         var l = await _context.Labels.FindAsync(id);
         if (l == null) return false;
         
-        // ensure no child labels depend on it
-        if (await _context.Labels.AnyAsync(child => child.ParentId == id))
-            throw new InvalidOperationException("Cannot delete label because it has sub-labels.");
+        // Delete all child labels recursively
+        var childLabels = await _context.Labels.Where(child => child.ParentId == id).ToListAsync();
+        foreach (var child in childLabels)
+        {
+            await DeleteLabelAsync(child.Id);
+        }
 
         _context.Labels.Remove(l);
         await _context.SaveChangesAsync();
         return true;
+    }
+
+    public async Task<BulkDeleteResultDto> BulkDeleteLabelsAsync(List<long> labelIds)
+    {
+        var result = new BulkDeleteResultDto { TotalRequested = labelIds.Count };
+
+        foreach (var labelId in labelIds)
+        {
+            try
+            {
+                if (await DeleteLabelAsync(labelId))
+                {
+                    result.SuccessfullyDeleted++;
+                }
+                else
+                {
+                    result.Failed++;
+                    result.Errors.Add(new BulkDeleteErrorDto { Id = labelId, Reason = "Label not found" });
+                }
+            }
+            catch (InvalidOperationException ex)
+            {
+                result.Failed++;
+                result.Errors.Add(new BulkDeleteErrorDto { Id = labelId, Reason = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                result.Failed++;
+                result.Errors.Add(new BulkDeleteErrorDto { Id = labelId, Reason = ex.Message });
+            }
+        }
+
+        return result;
     }
     #endregion
 
@@ -365,6 +593,31 @@ public class ManagerService : IManagerService
             PendingItems = pending
         };
     }
+
+    public async Task<List<DatasetAssignmentDto>> GetDatasetAssignmentsAsync(long datasetId)
+    {
+        // Verify dataset exists
+        if (!await _context.Datasets.AnyAsync(d => d.Id == datasetId))
+            throw new KeyNotFoundException($"Dataset {datasetId} not found.");
+
+        var assignments = await _context.DatasetAssignments
+            .Where(da => da.DatasetId == datasetId)
+            .Include(da => da.User)
+            .OrderBy(da => da.Role)
+            .ThenBy(da => da.User.Username)
+            .Select(da => new DatasetAssignmentDto
+            {
+                Id = da.Id,
+                DatasetId = da.DatasetId,
+                UserId = da.UserId,
+                Username = da.User.Username,
+                Role = da.Role,
+                AssignedAt = da.AssignedAt
+            })
+            .ToListAsync();
+
+        return assignments;
+    }
     #endregion
 
     #region Quality
@@ -426,11 +679,13 @@ public class ManagerService : IManagerService
         };
     }
 
-    public async Task<IEnumerable<ExportJobDto>> GetExportJobsAsync(long projectId)
+    public async Task<PagedResult<ExportJobDto>> GetExportJobsAsync(long projectId, int pageNumber = 1, int pageSize = 20)
     {
-        return await _context.ExportJobs
-            .Where(e => e.ProjectId == projectId)
-            .OrderByDescending(e => e.CreatedAt)
+        var query = _context.ExportJobs.Where(e => e.ProjectId == projectId);
+        var total = await query.CountAsync();
+        var data = await query.OrderByDescending(e => e.CreatedAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
             .Select(e => new ExportJobDto
             {
                 Id = e.Id,
@@ -441,6 +696,57 @@ public class ManagerService : IManagerService
                 CreatedAt = e.CreatedAt
             })
             .ToListAsync();
+        return new PagedResult<ExportJobDto> { Items = data, TotalCount = total, PageNumber = pageNumber, PageSize = pageSize };
+    }
+    #endregion
+
+    #region User Management
+    public async Task<PagedResult<DataLabeling.Domain.DTOs.Manager.UserDto>> GetUsersAsync(int pageNumber, int pageSize, string? role = null, string? status = null)
+    {
+        var query = _context.Users.AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(role))
+        {
+            query = query.Where(u => u.Role == role);
+        }
+
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            query = query.Where(u => u.Status == status);
+        }
+
+        var total = await query.CountAsync();
+        var data = await query.OrderByDescending(u => u.CreatedAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .Select(u => new DataLabeling.Domain.DTOs.Manager.UserDto
+            {
+                Id = u.Id,
+                Username = u.Username,
+                Email = u.Email,
+                Role = u.Role,
+                Status = u.Status,
+                CreatedAt = u.CreatedAt
+            })
+            .ToListAsync();
+
+        return new PagedResult<DataLabeling.Domain.DTOs.Manager.UserDto> { Items = data, TotalCount = total, PageNumber = pageNumber, PageSize = pageSize };
+    }
+
+    public async Task<DataLabeling.Domain.DTOs.Manager.UserDto?> GetUserByIdAsync(long id)
+    {
+        var user = await _context.Users.FindAsync(id);
+        if (user == null) return null;
+
+        return new DataLabeling.Domain.DTOs.Manager.UserDto
+        {
+            Id = user.Id,
+            Username = user.Username,
+            Email = user.Email,
+            Role = user.Role,
+            Status = user.Status,
+            CreatedAt = user.CreatedAt
+        };
     }
     #endregion
 }

@@ -1,5 +1,6 @@
 using DataLabeling.Application.Interfaces;
 using DataLabeling.Domain.DTOs.Annotator;
+using DataLabeling.Domain.DTOs.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -36,36 +37,36 @@ public class AnnotatorController : ControllerBase
     /// <response code="401">Unauthorized - user not authenticated</response>
     /// <response code="500">Internal server error</response>
     [HttpGet("assigned-tasks")]
-    [ProducesResponseType(typeof(AnnotatorResponse<List<AssignedTaskDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(AnnotatorResponse<PagedResult<AssignedTaskDto>>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> GetAssignedTasks()
+    public async Task<IActionResult> GetAssignedTasks([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
     {
         try
         {
             var userId = GetUserId();
             if (userId == 0)
             {
-                return Unauthorized(new AnnotatorResponse<List<AssignedTaskDto>>
+                return Unauthorized(new AnnotatorResponse<PagedResult<AssignedTaskDto>>
                 {
                     IsSuccess = false,
                     Message = "User not authenticated"
                 });
             }
 
-            var result = await _annotatorService.GetAssignedTasksAsync(userId);
+            var result = await _annotatorService.GetAssignedTasksAsync(userId, pageNumber, pageSize);
 
             if (!result.IsSuccess)
             {
                 return BadRequest(result);
             }
 
-            _logger.LogInformation($"Annotator {userId} retrieved assigned tasks");
+            _logger.LogInformation($"Annotator {userId} retrieved assigned tasks (page {pageNumber})");
             return Ok(result);
         }
         catch (Exception ex)
         {
             _logger.LogError($"Error getting assigned tasks: {ex.Message}");
-            return StatusCode(500, new AnnotatorResponse<List<AssignedTaskDto>>
+            return StatusCode(500, new AnnotatorResponse<PagedResult<AssignedTaskDto>>
             {
                 IsSuccess = false,
                 Message = "An error occurred while retrieving assigned tasks"
@@ -271,6 +272,89 @@ public class AnnotatorController : ControllerBase
             {
                 IsSuccess = false,
                 Message = "An error occurred while retrieving annotation feedback"
+            });
+        }
+    }
+
+    [HttpGet("profile")]
+    public async Task<IActionResult> GetCurrentAnnotatorProfile()
+    {
+        try
+        {
+            var userId = GetUserId();
+            if (userId == 0)
+            {
+                return Unauthorized(new AnnotatorResponse<AnnotatorProfileDto>
+                {
+                    IsSuccess = false,
+                    Message = "User not authenticated"
+                });
+            }
+
+            var result = await _annotatorService.GetAnnotatorProfileAsync(userId);
+
+            if (!result.IsSuccess)
+            {
+                return BadRequest(result);
+            }
+
+            _logger.LogInformation($"Annotator {userId} retrieved their profile information");
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Error getting annotator profile: {ex.Message}");
+            return StatusCode(500, new AnnotatorResponse<AnnotatorProfileDto>
+            {
+                IsSuccess = false,
+                Message = "An error occurred while retrieving annotator profile"
+            });
+        }
+    }
+
+    /// <summary>
+    /// Get annotation history for the current annotator with pagination and optional status filter
+    /// </summary>
+    /// <param name="pageNumber">Page number (default: 1)</param>
+    /// <param name="pageSize">Items per page (default: 20)</param>
+    /// <param name="status">Optional status filter (pending, approved, rejected, etc.)</param>
+    /// <response code="200">Annotation history retrieved successfully</response>
+    /// <response code="401">Unauthorized - user not authenticated</response>
+    /// <response code="500">Internal server error</response>
+    [HttpGet("annotation-history")]
+    [ProducesResponseType(typeof(AnnotatorResponse<PagedResult<AnnotationHistoryDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetAnnotationHistory([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20, [FromQuery] string? status = null)
+    {
+        try
+        {
+            var userId = GetUserId();
+            if (userId == 0)
+            {
+                return Unauthorized(new AnnotatorResponse<PagedResult<AnnotationHistoryDto>>
+                {
+                    IsSuccess = false,
+                    Message = "User not authenticated"
+                });
+            }
+
+            var result = await _annotatorService.GetAnnotationHistoryAsync(userId, pageNumber, pageSize, status);
+
+            if (!result.IsSuccess)
+            {
+                return BadRequest(result);
+            }
+
+            _logger.LogInformation($"Annotator {userId} retrieved annotation history (page {pageNumber}, size {pageSize})");
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Error getting annotation history: {ex.Message}");
+            return StatusCode(500, new AnnotatorResponse<PagedResult<AnnotationHistoryDto>>
+            {
+                IsSuccess = false,
+                Message = "An error occurred while retrieving annotation history"
             });
         }
     }
