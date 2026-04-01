@@ -4,7 +4,7 @@ using DataLabeling.Domain.DTOs.Common;
 using DataLabeling.Domain.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace DataLabeling.Infrastructure.Services;
+namespace DataLabeling.Application.Services;
 
 public class ActivityLogService : IActivityLogService
 {
@@ -71,3 +71,4 @@ public class ActivityLogService : IActivityLogService
         await _context.SaveChangesAsync();
     }
 }
+

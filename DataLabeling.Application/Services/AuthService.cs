@@ -3,7 +3,7 @@ using DataLabeling.Domain.DTOs.Auth;
 using DataLabeling.Domain.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace DataLabeling.Infrastructure.Services;
+namespace DataLabeling.Application.Services;
 
 public class AuthService : IAuthService
 {
@@ -310,4 +310,5 @@ public class AuthService : IAuthService
         return normalizedStatus ?? UserStatus.Active;
     }
 }
+
 

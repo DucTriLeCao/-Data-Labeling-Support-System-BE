@@ -4,7 +4,7 @@ using DataLabeling.Domain.DTOs.Annotator;
 using DataLabeling.Domain.DTOs.Common;
 using DataLabeling.Domain.Models;
 
-namespace DataLabeling.Infrastructure.Services;
+namespace DataLabeling.Application.Services;
 
 /// <summary>
 /// Service for handling annotator-related operations
@@ -521,3 +521,4 @@ public class AnnotatorService : IAnnotatorService
         }
     }
 }
+

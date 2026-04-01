@@ -1,6 +1,6 @@
 using DataLabeling.Application.Interfaces;
 using DataLabeling.Infrastructure.Configuration;
-using DataLabeling.Infrastructure.Services;
+using DataLabeling.Application.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;

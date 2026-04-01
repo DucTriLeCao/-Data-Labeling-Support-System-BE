@@ -2,7 +2,7 @@ using DataLabeling.Application.Interfaces;
 using DataLabeling.Domain.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace DataLabeling.Infrastructure.Services;
+namespace DataLabeling.Application.Services;
 
 public class PasswordResetService : IPasswordResetService
 {
@@ -224,3 +224,4 @@ public class PasswordResetService : IPasswordResetService
         }
     }
 }
+

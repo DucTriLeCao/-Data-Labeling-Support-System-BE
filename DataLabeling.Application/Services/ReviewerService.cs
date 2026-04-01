@@ -5,7 +5,7 @@ using DataLabeling.Domain.DTOs.Common;
 using DataLabeling.Domain.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace DataLabeling.Infrastructure.Services;
+namespace DataLabeling.Application.Services;
 
 /// <summary>
 /// Service for handling reviewer-related operations
@@ -501,3 +501,4 @@ public class ReviewerService : IReviewerService
         public List<string> ErrorCategories { get; set; } = new();
     }
 }
+

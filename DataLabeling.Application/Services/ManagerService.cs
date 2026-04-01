@@ -5,7 +5,7 @@ using DataLabeling.Domain.DTOs.Admin.UserMgmt;
 using DataLabeling.Domain.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace DataLabeling.Infrastructure.Services;
+namespace DataLabeling.Application.Services;
 
 public class ManagerService : IManagerService
 {
@@ -750,3 +750,4 @@ public class ManagerService : IManagerService
     }
     #endregion
 }
+

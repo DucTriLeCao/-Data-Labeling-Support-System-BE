@@ -1,6 +1,6 @@
 using DataLabeling.Application.Interfaces;
 
-namespace DataLabeling.Infrastructure.Services;
+namespace DataLabeling.Infrastructure.Configuration;
 
 public class BcryptPasswordHasher : IPasswordHasher
 {

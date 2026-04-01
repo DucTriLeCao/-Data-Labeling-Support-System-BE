@@ -4,7 +4,7 @@ using DataLabeling.Domain.DTOs.Common;
 using DataLabeling.Domain.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace DataLabeling.Infrastructure.Services;
+namespace DataLabeling.Application.Services;
 
 public class AdminUserService : IAdminUserService
 {
@@ -195,3 +195,4 @@ public class AdminUserService : IAdminUserService
         return result;
     }
 }
+
