@@ -5,7 +5,7 @@ using DataLabeling.Domain.DTOs.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace DataLabeling.API.Controllers;
+namespace DataLabeling.API.Controllers.Reviewer;
 
 /// <summary>
 /// API endpoints for reviewer operations

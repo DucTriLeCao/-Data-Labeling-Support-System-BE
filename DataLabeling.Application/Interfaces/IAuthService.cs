@@ -24,18 +24,5 @@ public interface IAuthService
     /// </summary>
     Task<UserDto?> GetUserByUsernameAsync(string username);
 
-    /// <summary>
-    /// Request password reset
-    /// </summary>
-    Task<AuthResponse> ForgotPasswordAsync(string emailOrUsername);
 
-    /// <summary>
-    /// Reset password with token
-    /// </summary>
-    Task<AuthResponse> ResetPasswordAsync(long userId, string resetToken, string newPassword, string confirmPassword);
-
-    /// <summary>
-    /// Change password for authenticated user
-    /// </summary>
-    Task<AuthResponse> ChangePasswordAsync(long userId, ChangePasswordRequest request);
 }

@@ -10,18 +10,14 @@ public class AuthService : IAuthService
     private readonly DataLabelingDBContext _dbContext;
     private readonly IPasswordHasher _passwordHasher;
     private readonly ITokenProvider _tokenProvider;
-    private readonly IPasswordResetService _passwordResetService;
-
     public AuthService(
         DataLabelingDBContext dbContext,
         IPasswordHasher passwordHasher,
-        ITokenProvider tokenProvider,
-        IPasswordResetService passwordResetService)
+        ITokenProvider tokenProvider)
     {
         _dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
         _passwordHasher = passwordHasher ?? throw new ArgumentNullException(nameof(passwordHasher));
         _tokenProvider = tokenProvider ?? throw new ArgumentNullException(nameof(tokenProvider));
-        _passwordResetService = passwordResetService ?? throw new ArgumentNullException(nameof(passwordResetService));
     }
 
     public async Task<AuthResponse> LoginAsync(LoginRequest request)
@@ -169,118 +165,7 @@ public class AuthService : IAuthService
         };
     }
 
-    public async Task<AuthResponse> ForgotPasswordAsync(string emailOrUsername)
-    {
-        try
-        {
-            if (string.IsNullOrWhiteSpace(emailOrUsername))
-            {
-                return new AuthResponse
-                {
-                    IsSuccess = false,
-                    Message = "Email or username is required"
-                };
-            }
 
-            var (success, token, message) = await _passwordResetService.GeneratePasswordResetTokenAsync(emailOrUsername);
-
-            return new AuthResponse
-            {
-                IsSuccess = success,
-                Message = message,
-                Data = success ? new AuthTokenResponse { AccessToken = token } : null
-            };
-        }
-        catch (Exception ex)
-        {
-            return new AuthResponse
-            {
-                IsSuccess = false,
-                Message = $"An error occurred: {ex.Message}"
-            };
-        }
-    }
-
-    public async Task<AuthResponse> ResetPasswordAsync(long userId, string resetToken, string newPassword, string confirmPassword)
-    {
-        try
-        {
-            if (string.IsNullOrWhiteSpace(resetToken) || string.IsNullOrWhiteSpace(newPassword) || string.IsNullOrWhiteSpace(confirmPassword))
-            {
-                return new AuthResponse
-                {
-                    IsSuccess = false,
-                    Message = "Reset token, new password, and confirm password are required"
-                };
-            }
-
-            if (newPassword != confirmPassword)
-            {
-                return new AuthResponse
-                {
-                    IsSuccess = false,
-                    Message = "Passwords do not match"
-                };
-            }
-
-            var (success, message) = await _passwordResetService.ResetPasswordAsync(userId, resetToken, newPassword);
-
-            return new AuthResponse
-            {
-                IsSuccess = success,
-                Message = message
-            };
-        }
-        catch (Exception ex)
-        {
-            return new AuthResponse
-            {
-                IsSuccess = false,
-                Message = $"An error occurred: {ex.Message}"
-            };
-        }
-    }
-
-    public async Task<AuthResponse> ChangePasswordAsync(long userId, ChangePasswordRequest request)
-    {
-        try
-        {
-            if (request == null || string.IsNullOrWhiteSpace(request.CurrentPassword) || 
-                string.IsNullOrWhiteSpace(request.NewPassword) || string.IsNullOrWhiteSpace(request.ConfirmPassword))
-            {
-                return new AuthResponse
-                {
-                    IsSuccess = false,
-                    Message = "Current password, new password, and confirm password are required"
-                };
-            }
-
-            if (request.NewPassword != request.ConfirmPassword)
-            {
-                return new AuthResponse
-                {
-                    IsSuccess = false,
-                    Message = "New passwords do not match"
-                };
-            }
-
-            var (success, message) = await _passwordResetService.ChangePasswordAsync(userId, request.CurrentPassword, request.NewPassword);
-
-            return new AuthResponse
-            {
-                IsSuccess = success,
-                Message = message
-            };
-        }
-        catch (Exception ex)
-        {
-            return new AuthResponse
-            {
-                IsSuccess = false,
-                Message = $"An error occurred: {ex.Message}"
-            };
-        }
-    }
 
     /// <summary>
     /// Normalizes role to proper casing by matching against valid roles in UserRole class.

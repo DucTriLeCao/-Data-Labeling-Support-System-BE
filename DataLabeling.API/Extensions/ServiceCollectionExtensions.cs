@@ -32,10 +32,8 @@ public static class ServiceCollectionExtensions
         // Register authentication services
         services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
         services.AddScoped<ITokenProvider, JwtTokenProvider>();
-        services.AddScoped<IPasswordResetService, PasswordResetService>();
         services.AddScoped<IAuthService, AuthService>();
-        services.AddScoped<IAdminUserService, AdminUserService>();
-        services.AddScoped<IActivityLogService, ActivityLogService>();
+        services.AddScoped<IAdminService, AdminService>();
         services.AddScoped<IManagerService, ManagerService>();
         services.AddScoped<IAnnotatorService, AnnotatorService>();
         services.AddScoped<IReviewerService, ReviewerService>();

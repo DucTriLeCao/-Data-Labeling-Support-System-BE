@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 
-namespace DataLabeling.API.Controllers;
+namespace DataLabeling.API.Controllers.Annotator;
 
 /// <summary>
 /// API endpoints for annotator operations

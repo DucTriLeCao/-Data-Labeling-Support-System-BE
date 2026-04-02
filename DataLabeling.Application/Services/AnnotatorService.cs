@@ -220,7 +220,7 @@ public class AnnotatorService : IAnnotatorService
                 existingAnnotation.LabelValue = request.LabelValue;
                 existingAnnotation.AnnotationType = request.AnnotationType;
                 existingAnnotation.CoordinateData = request.CoordinateData;
-                existingAnnotation.Status = "InProgress";
+                existingAnnotation.Status = "in_progress";
                 _dbContext.Annotations.Update(existingAnnotation);
                 annotation = existingAnnotation;
             }
@@ -234,7 +234,7 @@ public class AnnotatorService : IAnnotatorService
                     LabelValue = request.LabelValue,
                     AnnotationType = request.AnnotationType,
                     CoordinateData = request.CoordinateData,
-                    Status = "InProgress",
+                    Status = "in_progress",
                     CreatedAt = DateTime.UtcNow
                 };
                 _dbContext.Annotations.Add(annotation);
@@ -302,7 +302,7 @@ public class AnnotatorService : IAnnotatorService
                 };
             }
 
-            annotation.Status = "Submitted";
+            annotation.Status = "submitted";
             _dbContext.Annotations.Update(annotation);
             await _dbContext.SaveChangesAsync();
 

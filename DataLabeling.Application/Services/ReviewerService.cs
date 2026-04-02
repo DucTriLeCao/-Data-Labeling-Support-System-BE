@@ -244,6 +244,16 @@ public class ReviewerService : IReviewerService
             if (decision == "approved")
             {
                 annotation.Status = "approved";
+                
+                // Create final result record when annotation is approved
+                var finalResult = new FinalResult
+                {
+                    DataItemId = annotation.DataItemId,
+                    AnnotationId = annotation.Id,
+                    DecidedBy = reviewerId,
+                    DecidedAt = DateTime.UtcNow
+                };
+                _dbContext.FinalResults.Add(finalResult);
             }
             else if (decision == "rejected")
             {

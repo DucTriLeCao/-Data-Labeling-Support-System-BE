@@ -90,7 +90,6 @@ public class ManagerService : IManagerService
         var project = await _context.Projects.FindAsync(id);
         if (project == null) return false;
 
-        // Delete all datasets in project (cascade)
         var datasets = await _context.Datasets.Where(d => d.ProjectId == id).ToListAsync();
         foreach (var dataset in datasets)
         {
@@ -99,11 +98,9 @@ public class ManagerService : IManagerService
             _context.Datasets.Remove(dataset);
         }
 
-        // Delete project members
         var members = await _context.ProjectMembers.Where(pm => pm.ProjectId == id).ToListAsync();
         _context.ProjectMembers.RemoveRange(members);
 
-        // Delete labels
         var labels = await _context.Labels.Where(l => l.ProjectId == id).ToListAsync();
         _context.Labels.RemoveRange(labels);
 
