@@ -93,6 +93,16 @@ public class AssignDatasetDto
     public string Role { get; set; } = string.Empty; // "Annotator" or "Reviewer"
 }
 
+public class AssignDataItemsDto
+{
+    [Required]
+    public List<long> DataItemIds { get; set; } = new();
+    [Required]
+    public long UserId { get; set; }
+    [Required]
+    public string Role { get; set; } = string.Empty; // "Annotator" or "Reviewer"
+}
+
 public class DatasetProgressDto
 {
     public long DatasetId { get; set; }
@@ -110,6 +120,55 @@ public class QualityOverviewDto
     public int ApprovedCount { get; set; }
     public int RejectedCount { get; set; }
     public double ApprovalRate => TotalAnnotations > 0 ? (double)ApprovedCount / TotalAnnotations * 100 : 0;
+}
+
+// Quality Overview By Project DTO
+public class QualityOverviewByProjectDto
+{
+    public long ProjectId { get; set; }
+    public string ProjectName { get; set; } = string.Empty;
+    public int TotalAnnotations { get; set; }
+    public int Approved { get; set; }
+    public int Rejected { get; set; }
+    public double ApprovalRate => (Approved + Rejected) > 0 ? (double)Approved / (Approved + Rejected) * 100 : 0;
+}
+
+// Quality Overview By Dataset DTO
+public class QualityOverviewByDatasetDto
+{
+    public long DatasetId { get; set; }
+    public string DatasetName { get; set; } = string.Empty;
+    public long ProjectId { get; set; }
+    public string ProjectName { get; set; } = string.Empty;
+    public int TotalAnnotations { get; set; }
+    public int Approved { get; set; }
+    public int Rejected { get; set; }
+    public double ApprovalRate => (Approved + Rejected) > 0 ? (double)Approved / (Approved + Rejected) * 100 : 0;
+}
+
+// Quality Overview By DataItem DTO
+public class QualityOverviewByDataItemDto
+{
+    public long DataItemId { get; set; }
+    public string DataItemContent { get; set; } = string.Empty;
+    public long DatasetId { get; set; }
+    public string DatasetName { get; set; } = string.Empty;
+    public int TotalAnnotations { get; set; }
+    public int Approved { get; set; }
+    public int Rejected { get; set; }
+    public double ApprovalRate => TotalAnnotations > 0 ? (double)Approved / TotalAnnotations * 100 : 0;
+}
+
+// Quality Overview By Annotator DTO
+public class QualityOverviewByAnnotatorDto
+{
+    public long AnnotatorId { get; set; }
+    public string AnnotatorName { get; set; } = string.Empty;
+    public int TotalAnnotations { get; set; }
+    public int Approved { get; set; }
+    public int Rejected { get; set; }
+    public double ApprovalRate => TotalAnnotations > 0 ? (double)Approved / TotalAnnotations * 100 : 0;
+    public int ProjectsWorkedOn { get; set; }
 }
 
 // Export DTO

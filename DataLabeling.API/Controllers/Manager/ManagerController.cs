@@ -312,17 +312,25 @@ public class ManagerController : ControllerBase
     #endregion
 
     #region Task Assignment & Tracking
-    [HttpPost("datasets/{datasetId}/assign")]
-    public async Task<IActionResult> AssignDataset([FromRoute] long datasetId, [FromBody] AssignDatasetDto request)
+    [HttpPost("data-items/assign")]
+    public async Task<IActionResult> AssignDataItems([FromBody] AssignDataItemsDto request)
     {
         try
         {
-            await _managerService.AssignDatasetAsync(datasetId, request);
-            return Ok(new { Message = "Assigned successfully." });
+            var success = await _managerService.AssignDataItemsAsync(request.DataItemIds, request.UserId, request.Role);
+            return Ok(new { message = "Data items assigned successfully.", dataItemsCount = request.DataItemIds.Count });
         }
         catch (KeyNotFoundException ex)
         {
-            return NotFound(ex.Message);
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
         }
     }
 
@@ -356,17 +364,59 @@ public class ManagerController : ControllerBase
     #endregion
 
     #region Quality Overview
-    [HttpGet("projects/{projectId}/quality-overview")]
-    public async Task<IActionResult> GetQualityOverview([FromRoute] long projectId)
+    [HttpGet("quality-overview/by-project")]
+    public async Task<IActionResult> GetQualityOverviewByProject()
     {
         try
         {
-            var overview = await _managerService.GetQualityOverviewAsync(projectId);
+            var overview = await _managerService.GetQualityOverviewByProjectAsync();
             return Ok(overview);
         }
-        catch (KeyNotFoundException ex)
+        catch (Exception ex)
         {
-            return NotFound(ex.Message);
+            return BadRequest(new { Message = ex.Message });
+        }
+    }
+
+    [HttpGet("quality-overview/by-dataset")]
+    public async Task<IActionResult> GetQualityOverviewByDataset()
+    {
+        try
+        {
+            var overview = await _managerService.GetQualityOverviewByDatasetAsync();
+            return Ok(overview);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { Message = ex.Message });
+        }
+    }
+
+    [HttpGet("quality-overview/by-dataitem")]
+    public async Task<IActionResult> GetQualityOverviewByDataItem()
+    {
+        try
+        {
+            var overview = await _managerService.GetQualityOverviewByDataItemAsync();
+            return Ok(overview);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { Message = ex.Message });
+        }
+    }
+
+    [HttpGet("quality-overview/by-annotator")]
+    public async Task<IActionResult> GetQualityOverviewByAnnotator()
+    {
+        try
+        {
+            var overview = await _managerService.GetQualityOverviewByAnnotatorAsync();
+            return Ok(overview);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { Message = ex.Message });
         }
     }
     #endregion

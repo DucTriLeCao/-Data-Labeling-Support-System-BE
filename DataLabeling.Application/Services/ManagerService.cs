@@ -489,86 +489,6 @@ public class ManagerService : IManagerService
     #endregion
 
     #region Assignment & Progress
-    public async Task<bool> AssignDatasetAsync(long datasetId, AssignDatasetDto request)
-    {
-        if (!await _context.Datasets.AnyAsync(d => d.Id == datasetId)) throw new KeyNotFoundException("Dataset not found.");
-        if (!await _context.Users.AnyAsync(u => u.Id == request.UserId)) throw new KeyNotFoundException("User not found.");
-
-        var dataset = await _context.Datasets.FindAsync(datasetId);
-        long projectId = dataset.ProjectId;
-
-        // Update dataset status to assigned
-        dataset.Status = "assigned";
-        _context.Datasets.Update(dataset);
-
-        // Update or create DatasetAssignment
-        var existing = await _context.DatasetAssignments.FirstOrDefaultAsync(da => da.DatasetId == datasetId && da.UserId == request.UserId);
-        if (existing != null)
-        {
-            existing.Role = request.Role;
-            existing.AssignedAt = DateTime.UtcNow;
-            _context.DatasetAssignments.Update(existing);
-        }
-        else
-        {
-            _context.DatasetAssignments.Add(new DatasetAssignment
-            {
-                DatasetId = datasetId,
-                UserId = request.UserId,
-                Role = request.Role,
-                AssignedAt = DateTime.UtcNow
-            });
-        }
-
-        // Create DataItemAssignments for all data items in the dataset
-        var dataItems = await _context.DataItems.Where(di => di.DatasetId == datasetId).ToListAsync();
-        foreach (var dataItem in dataItems)
-        {
-            // Update dataitem status to assigned
-            dataItem.Status = "assigned";
-            _context.DataItems.Update(dataItem);
-
-            var existingAssignment = await _context.DataItemAssignments
-                .FirstOrDefaultAsync(da => da.DataItemId == dataItem.Id && da.UserId == request.UserId);
-            
-            if (existingAssignment == null)
-            {
-                _context.DataItemAssignments.Add(new DataItemAssignment
-                {
-                    DataItemId = dataItem.Id,
-                    UserId = request.UserId,
-                    Status = "assigned",
-                    AssignedAt = DateTime.UtcNow
-                });
-            }
-        }
-
-        // Add user to ProjectMembers if not already a member
-        var existingMember = await _context.ProjectMembers.FirstOrDefaultAsync(pm => pm.ProjectId == projectId && pm.UserId == request.UserId);
-        if (existingMember == null)
-        {
-            _context.ProjectMembers.Add(new ProjectMember
-            {
-                ProjectId = projectId,
-                UserId = request.UserId,
-                RoleInProject = request.Role,
-                JoinedAt = DateTime.UtcNow
-            });
-        }
-        else
-        {
-            // Update existing role if different
-            if (existingMember.RoleInProject != request.Role)
-            {
-                existingMember.RoleInProject = request.Role;
-                _context.ProjectMembers.Update(existingMember);
-            }
-        }
-
-        await _context.SaveChangesAsync();
-        return true;
-    }
-
     public async Task<DatasetProgressDto> GetDatasetProgressAsync(long datasetId)
     {
         if (!await _context.Datasets.AnyAsync(d => d.Id == datasetId)) throw new KeyNotFoundException("Dataset not found.");
@@ -615,33 +535,268 @@ public class ManagerService : IManagerService
 
         return assignments;
     }
+
+    // Assign individual data items to users (new primary assignment method)
+    public async Task<bool> AssignDataItemsAsync(List<long> dataItemIds, long userId, string role)
+    {
+        if (!await _context.Users.AnyAsync(u => u.Id == userId))
+            throw new KeyNotFoundException("User not found.");
+
+        if (dataItemIds == null || dataItemIds.Count == 0)
+            throw new InvalidOperationException("No data items provided.");
+
+        // Get the dataset from the first data item
+        var firstItem = await _context.DataItems
+            .Include(di => di.Dataset)
+            .FirstOrDefaultAsync(di => dataItemIds.Contains(di.Id));
+        if (firstItem == null)
+            throw new KeyNotFoundException("Data items not found.");
+
+        long datasetId = firstItem.DatasetId;
+        long projectId = firstItem.Dataset.ProjectId;
+
+        // Create or update DatasetAssignment (for context/tracking)
+        var datasetAssignment = await _context.DatasetAssignments
+            .FirstOrDefaultAsync(da => da.DatasetId == datasetId && da.UserId == userId);
+        
+        if (datasetAssignment == null)
+        {
+            _context.DatasetAssignments.Add(new DatasetAssignment
+            {
+                DatasetId = datasetId,
+                UserId = userId,
+                Role = role,
+                AssignedAt = DateTime.UtcNow
+            });
+        }
+        else
+        {
+            datasetAssignment.Role = role;
+            datasetAssignment.AssignedAt = DateTime.UtcNow;
+            _context.DatasetAssignments.Update(datasetAssignment);
+        }
+
+        // Assign individual data items
+        foreach (var dataItemId in dataItemIds)
+        {
+            var dataItem = await _context.DataItems.FindAsync(dataItemId);
+            if (dataItem == null) continue;
+
+            // Update dataitem status to assigned
+            dataItem.Status = "assigned";
+            _context.DataItems.Update(dataItem);
+
+            // Create or update DataItemAssignment
+            var existingAssignment = await _context.DataItemAssignments
+                .FirstOrDefaultAsync(da => da.DataItemId == dataItemId && da.UserId == userId);
+            
+            if (existingAssignment != null)
+            {
+                throw new InvalidOperationException($"Data item {dataItemId} has already been assigned to this user.");
+            }
+
+            _context.DataItemAssignments.Add(new DataItemAssignment
+            {
+                DataItemId = dataItemId,
+                UserId = userId,
+                Status = "assigned",
+                AssignedAt = DateTime.UtcNow
+            });
+        }
+
+        // Add user to ProjectMembers if not already a member
+        var existingMember = await _context.ProjectMembers.FirstOrDefaultAsync(pm => pm.ProjectId == projectId && pm.UserId == userId);
+        if (existingMember == null)
+        {
+            _context.ProjectMembers.Add(new ProjectMember
+            {
+                ProjectId = projectId,
+                UserId = userId,
+                RoleInProject = role,
+                JoinedAt = DateTime.UtcNow
+            });
+        }
+        else if (existingMember.RoleInProject != role)
+        {
+            existingMember.RoleInProject = role;
+            _context.ProjectMembers.Update(existingMember);
+        }
+
+        await _context.SaveChangesAsync();
+
+        // Check if all data items in dataset are now assigned
+        await UpdateDatasetStatusAsync(datasetId);
+
+        return true;
+    }
+
+    // Helper method to auto-update dataset status when all items are assigned
+    private async Task UpdateDatasetStatusAsync(long datasetId)
+    {
+        var dataset = await _context.Datasets.FindAsync(datasetId);
+        if (dataset == null) return;
+
+        var totalItems = await _context.DataItems.CountAsync(di => di.DatasetId == datasetId);
+        var assignedItems = await _context.DataItems.CountAsync(di => di.DatasetId == datasetId && di.Status == "assigned");
+
+        // If all items are assigned, mark dataset as assigned
+        if (totalItems > 0 && totalItems == assignedItems)
+        {
+            dataset.Status = "assigned";
+            _context.Datasets.Update(dataset);
+            await _context.SaveChangesAsync();
+        }
+    }
     #endregion
 
     #region Quality
-    public async Task<QualityOverviewDto> GetQualityOverviewAsync(long projectId)
+    public async Task<List<QualityOverviewByProjectDto>> GetQualityOverviewByProjectAsync()
     {
-        if (!await _context.Projects.AnyAsync(p => p.Id == projectId)) throw new KeyNotFoundException("Project not found.");
+        // Get all annotations with their reviews grouped by project
+        var annotationsWithReviews = await _context.Annotations
+            .Include(a => a.Reviews)
+            .Include(a => a.DataItem).ThenInclude(di => di.Dataset).ThenInclude(d => d.Project)
+            .ToListAsync();
 
-        // Reviews are linked to Annotations -> DataItems -> Datasets -> Project
-        var annotationsInProject = _context.Annotations
-            .Include(a => a.DataItem).ThenInclude(di => di.Dataset)
-            .Where(a => a.DataItem.Dataset.ProjectId == projectId);
+        var qualityByProject = annotationsWithReviews
+            .Where(a => a.DataItem != null && a.DataItem.Dataset != null)
+            .GroupBy(a => a.DataItem.Dataset.ProjectId)
+            .Select(g => new
+            {
+                ProjectId = g.Key,
+                ProjectName = g.First().DataItem?.Dataset?.Project?.Name ?? "Unknown",
+                TotalAnnotations = g.Count(),
+                Approved = g.Count(a => a.Reviews?.Any(r => r.Status == "approved") == true),
+                Rejected = g.Count(a => a.Reviews?.Any(r => r.Status == "rejected") == true && a.Reviews?.Any(r => r.Status == "approved") != true)
+            })
+            .ToList();
 
-        var reviewsInProject = _context.Reviews
-            .Include(r => r.Annotation).ThenInclude(a => a.DataItem).ThenInclude(di => di.Dataset)
-            .Where(r => r.Annotation.DataItem.Dataset.ProjectId == projectId);
-
-        int totalAnnotations = await annotationsInProject.CountAsync();
-        int approved = await reviewsInProject.CountAsync(r => r.Status == "approved");
-        int rejected = await reviewsInProject.CountAsync(r => r.Status == "rejected");
-
-        return new QualityOverviewDto
+        var result = qualityByProject.Select(qp => new QualityOverviewByProjectDto
         {
-            ProjectId = projectId,
-            TotalAnnotations = totalAnnotations,
-            ApprovedCount = approved,
-            RejectedCount = rejected
-        };
+            ProjectId = qp.ProjectId,
+            ProjectName = qp.ProjectName,
+            TotalAnnotations = qp.TotalAnnotations,
+            Approved = qp.Approved,
+            Rejected = qp.Rejected
+        })
+        .OrderByDescending(x => x.ApprovalRate)
+        .ToList();
+
+        return result;
+    }
+
+    public async Task<List<QualityOverviewByDatasetDto>> GetQualityOverviewByDatasetAsync()
+    {
+        // Get all annotations with their reviews grouped by dataset
+        var annotationsWithReviews = await _context.Annotations
+            .Include(a => a.Reviews)
+            .Include(a => a.DataItem).ThenInclude(di => di.Dataset).ThenInclude(d => d.Project)
+            .ToListAsync();
+
+        var qualityByDataset = annotationsWithReviews
+            .Where(a => a.DataItem != null && a.DataItem.Dataset != null)
+            .GroupBy(a => a.DataItem.DatasetId)
+            .Select(g => new
+            {
+                DatasetId = g.Key,
+                DatasetName = g.First().DataItem?.Dataset?.Name ?? "Unknown",
+                ProjectId = g.First().DataItem?.Dataset?.ProjectId ?? 0,
+                ProjectName = g.First().DataItem?.Dataset?.Project?.Name ?? "Unknown",
+                TotalAnnotations = g.Count(),
+                Approved = g.Count(a => a.Reviews?.Any(r => r.Status == "approved") == true),
+                Rejected = g.Count(a => a.Reviews?.Any(r => r.Status == "rejected") == true && a.Reviews?.Any(r => r.Status == "approved") != true)
+            })
+            .ToList();
+
+        var result = qualityByDataset.Select(qd => new QualityOverviewByDatasetDto
+        {
+            DatasetId = qd.DatasetId,
+            DatasetName = qd.DatasetName,
+            ProjectId = qd.ProjectId,
+            ProjectName = qd.ProjectName,
+            TotalAnnotations = qd.TotalAnnotations,
+            Approved = qd.Approved,
+            Rejected = qd.Rejected
+        })
+        .OrderByDescending(x => x.ApprovalRate)
+        .ToList();
+
+        return result;
+    }
+
+    public async Task<List<QualityOverviewByDataItemDto>> GetQualityOverviewByDataItemAsync()
+    {
+        // Get all reviews grouped by data item
+        var reviewsWithDetails = await _context.Reviews
+            .Include(r => r.Annotation).ThenInclude(a => a.DataItem).ThenInclude(di => di.Dataset)
+            .ToListAsync();
+
+        var qualityByDataItem = reviewsWithDetails
+            .Where(r => r.Annotation != null && r.Annotation.DataItem != null)
+            .GroupBy(r => r.Annotation.DataItemId)
+            .Select(g => new
+            {
+                DataItemId = g.Key,
+                DataItemContent = g.First().Annotation?.DataItem?.Content ?? "Unknown",
+                DatasetId = g.First().Annotation?.DataItem?.DatasetId ?? 0,
+                DatasetName = g.First().Annotation?.DataItem?.Dataset?.Name ?? "Unknown",
+                TotalAnnotations = g.Count(), // Reviews count
+                Approved = g.Count(r => r.Status == "approved"),
+                Rejected = g.Count(r => r.Status == "rejected")
+            })
+            .ToList();
+
+        var result = qualityByDataItem.Select(qdi => new QualityOverviewByDataItemDto
+        {
+            DataItemId = qdi.DataItemId,
+            DataItemContent = qdi.DataItemContent,
+            DatasetId = qdi.DatasetId,
+            DatasetName = qdi.DatasetName,
+            TotalAnnotations = qdi.TotalAnnotations,
+            Approved = qdi.Approved,
+            Rejected = qdi.Rejected
+        })
+        .OrderByDescending(x => x.ApprovalRate)
+        .ToList();
+
+        return result;
+    }
+
+    public async Task<List<QualityOverviewByAnnotatorDto>> GetQualityOverviewByAnnotatorAsync()
+    {
+        // Get all reviews grouped by annotator (whose annotations were reviewed)
+        var reviewsWithDetails = await _context.Reviews
+            .Include(r => r.Annotation).ThenInclude(a => a.User)
+            .Include(r => r.Annotation).ThenInclude(a => a.DataItem).ThenInclude(di => di.Dataset)
+            .ToListAsync();
+
+        var qualityByAnnotator = reviewsWithDetails
+            .Where(r => r.Annotation != null && r.Annotation.User != null)
+            .GroupBy(r => new { r.Annotation.UserId, UserName = r.Annotation.User.Username })
+            .Select(g => new
+            {
+                AnnotatorId = g.Key.UserId,
+                AnnotatorName = g.Key.UserName,
+                TotalAnnotations = g.Count(), // Reviews count
+                Approved = g.Count(r => r.Status == "approved"),
+                Rejected = g.Count(r => r.Status == "rejected"),
+                ProjectCount = g.Select(r => r.Annotation?.DataItem?.Dataset?.ProjectId ?? 0).Distinct().Count()
+            })
+            .ToList();
+
+        var result = qualityByAnnotator.Select(qa => new QualityOverviewByAnnotatorDto
+        {
+            AnnotatorId = qa.AnnotatorId,
+            AnnotatorName = qa.AnnotatorName,
+            TotalAnnotations = qa.TotalAnnotations,
+            Approved = qa.Approved,
+            Rejected = qa.Rejected,
+            ProjectsWorkedOn = qa.ProjectCount
+        })
+        .OrderByDescending(x => x.ApprovalRate)
+        .ToList();
+
+        return result;
     }
     #endregion
 

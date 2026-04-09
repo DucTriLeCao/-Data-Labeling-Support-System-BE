@@ -40,12 +40,15 @@ public interface IManagerService
     Task<BulkDeleteResultDto> BulkDeleteDataItemsAsync(List<long> dataItemIds);
 
     // Task Assignment & Tracking
-    Task<bool> AssignDatasetAsync(long datasetId, AssignDatasetDto request);
     Task<DatasetProgressDto> GetDatasetProgressAsync(long datasetId);
     Task<List<DatasetAssignmentDto>> GetDatasetAssignmentsAsync(long datasetId);
+    Task<bool> AssignDataItemsAsync(List<long> dataItemIds, long userId, string role);
 
     // Quality Overview
-    Task<QualityOverviewDto> GetQualityOverviewAsync(long projectId);
+    Task<List<QualityOverviewByProjectDto>> GetQualityOverviewByProjectAsync();
+    Task<List<QualityOverviewByDatasetDto>> GetQualityOverviewByDatasetAsync();
+    Task<List<QualityOverviewByDataItemDto>> GetQualityOverviewByDataItemAsync();
+    Task<List<QualityOverviewByAnnotatorDto>> GetQualityOverviewByAnnotatorAsync();
 
     // Export Data
     Task<ExportJobDto> CreateExportJobAsync(long projectId, ExportRequestDto request, long createdByUserId);
